@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration - Logiciel de Santé</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="bg-sky-900 text-white w-64 min-h-screen flex flex-col p-4">
+    <div class="flex items-center gap-2 mb-8">
+      <span class="text-3xl">➕</span>
+      <span class="font-bold text-lg">Logiciel de Santé</span>
+    </div>
+    <nav class="flex-1">
+      <ul class="space-y-2">
+        <li><a href="dashboard.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>📊</span> <span>Tableau de bord</span></a></li>
+        <li><a href="patients.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>👤</span> <span>Patients</span></a></li>
+        <li><a href="consultations.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🗒️</span> <span>Consultations</span></a></li>
+        <li><a href="ordonnances.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>💊</span> <span>Ordonnances</span></a></li>
+        <li><a href="analyses.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🧪</span> <span>Analyses</span></a></li>
+        <li><a href="profil.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>⚙️</span> <span>Profil</span></a></li>
+        <li><a href="admin.html" class="flex items-center gap-2 px-3 py-2 rounded bg-sky-800 cursor-pointer transition"><span>🛡️</span> <span>Administration</span></a></li>
+      </ul>
+    </nav>
+  </aside>
+  <!-- Main content -->
+  <div class="flex-1 flex flex-col p-8">
+    <header class="flex justify-between items-center p-4 bg-white shadow rounded-b-lg mb-6">
+      <div></div>
+      <div class="flex items-center gap-2" id="userHeader">
+        <span class="font-semibold" id="userName">Superadmin</span>
+        <span id="userAvatar" class="bg-sky-900 text-white rounded-full w-8 h-8 flex items-center justify-center">👤</span>
+        <button onclick="logout()" class="ml-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition">Déconnexion</button>
+      </div>
+    </header>
+    <div class="max-w-3xl mx-auto w-full">
+      <h2 class="text-xl font-bold mb-4 text-sky-900">Gestion des utilisateurs</h2>
+      <div class="bg-white p-6 rounded-xl shadow mb-8">
+        <table class="w-full text-sm mb-4">
+          <thead>
+            <tr class="text-left text-gray-500">
+              <th>Nom</th>
+              <th>Email</th>
+              <th>Rôle</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <script src="app.js"></script>
+    <script>
+      function logout() {
+        window.location.href = 'index.html';
+      }
+      // Vérifie que l'utilisateur est superadmin, sinon redirige
+      async function checkSuperadmin() {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+          window.location.href = 'index.html';
+          return;
+        }
+        const { data: users } = await supabase.from('users').select('*');
+        const current = users.find(u => u.id === user.id);
+        if (!current || current.role !== 'superadmin') {
+          alert('Accès réservé au superadmin.');
+          window.location.href = 'dashboard.html';
+        }
+        // Affichage du nom/avatar
+        document.getElementById('userName').textContent = user.user_metadata && user.user_metadata.full_name ? user.user_metadata.full_name : (user.email || 'Superadmin');
+        if (user.user_metadata && user.user_metadata.avatar_url) {
+          document.getElementById('userAvatar').innerHTML = `<img src="${user.user_metadata.avatar_url}" alt="avatar" class="w-8 h-8 rounded-full object-cover" />`;
+        } else {
+          document.getElementById('userAvatar').textContent = user.email[0].toUpperCase();
+        }
+        loadUsersTable(users, user.id);
+      }
+      // Affiche la liste des utilisateurs
+      async function loadUsersTable(users, currentUserId) {
+        const table = document.getElementById('usersTable');
+        table.innerHTML = '';
+        users.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${u.nom || ''}</td><td>${u.email || ''}</td><td>${u.role}</td><td>
+            ${u.role !== 'superadmin' ? `<button onclick="confirmRole('${u.id}', '${u.role}')" class="text-blue-600 hover:underline mr-2">Changer rôle</button>` : ''}
+            ${u.id !== currentUserId ? `<button onclick="confirmDelete('${u.id}', '${u.email}')" class="text-red-600 hover:underline mr-2">Supprimer</button>` : ''}
+            ${u.id !== currentUserId ? `<button onclick="confirmResetPassword('${u.email}')" class="text-orange-600 hover:underline">Réinitialiser mot de passe</button>` : ''}
+          </td>`;
+          table.appendChild(tr);
+        });
+      }
+      // Confirmation changement de rôle
+      function confirmRole(userId, currentRole) {
+        const newRole = currentRole === 'superadmin' ? 'medecin_chef' : 'superadmin';
+        if (newRole === 'superadmin') {
+          if (!confirm('Êtes-vous sûr de vouloir nommer ce compte superadmin ?')) return;
+        } else {
+          if (!confirm('Êtes-vous sûr de vouloir retirer le rôle superadmin ?')) return;
+        }
+        updateUserRole(userId, newRole).then(() => location.reload());
+      }
+      // Confirmation suppression
+      function confirmDelete(userId, email) {
+        if (confirm('Supprimer le compte de ' + email + ' ? Cette action est irréversible.')) {
+          deleteUserById(userId).then(() => location.reload());
+        }
+      }
+      // Confirmation réinitialisation mot de passe
+      function confirmResetPassword(email) {
+        const newPassword = prompt('Nouveau mot de passe pour ' + email + ' :');
+        if (newPassword && confirm('Confirmer la réinitialisation du mot de passe ?')) {
+          resetUserPassword(email, newPassword).then(() => alert('Mot de passe réinitialisé !'));
+        }
+      }
+      document.addEventListener('DOMContentLoaded', checkSuperadmin);
+    </script>
+  </div>
+</body>
+</html> 

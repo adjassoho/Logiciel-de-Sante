@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Logiciel de Santé</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen flex">
+    <!-- Sidebar -->
+    <aside class="bg-sky-900 text-white w-64 min-h-screen flex flex-col p-4">
+      <div class="flex items-center gap-2 mb-8">
+        <span class="text-3xl">➕</span>
+        <span class="font-bold text-lg">Logiciel de Santé</span>
+      </div>
+      <nav class="flex-1">
+        <ul class="space-y-2">
+          <li><a href="dashboard.html" class="flex items-center gap-2 px-3 py-2 rounded bg-sky-800 cursor-pointer transition"><span>📊</span> <span>Tableau de bord</span></a></li>
+          <li><a href="patients.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>👤</span> <span>Patients</span></a></li>
+          <li><a href="consultations.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🗒️</span> <span>Consultations</span></a></li>
+          <li><a href="ordonnances.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>💊</span> <span>Ordonnances</span></a></li>
+          <li><a href="analyses.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🧪</span> <span>Analyses</span></a></li>
+          <li><a href="profil.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>⚙️</span> <span>Profil</span></a></li>
+          <li id="adminLink" style="display:none"><a href="admin.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🛡️</span> <span>Administration</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col p-8">
+      <!-- Header -->
+      <header class="flex justify-between items-center p-4 bg-white shadow rounded-b-lg mb-6">
+        <div></div>
+        <div class="flex items-center gap-2" id="userHeader">
+          <span class="font-semibold" id="userName">Utilisateur</span>
+          <span id="userAvatar" class="bg-sky-900 text-white rounded-full w-8 h-8 flex items-center justify-center">👤</span>
+          <button onclick="logout()" class="ml-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition">Déconnexion</button>
+        </div>
+      </header>
+      <!-- Stats dynamiques -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-blue-100 rounded-lg p-4 text-center">
+          <div id="statPatients" class="text-2xl font-bold">...</div>
+          <div class="text-xs text-gray-700">Patients</div>
+        </div>
+        <div class="bg-blue-100 rounded-lg p-4 text-center">
+          <div id="statConsultations" class="text-2xl font-bold">...</div>
+          <div class="text-xs text-gray-700">Consultations</div>
+        </div>
+        <div class="bg-blue-100 rounded-lg p-4 text-center">
+          <div id="statOrdonnances" class="text-2xl font-bold">...</div>
+          <div class="text-xs text-gray-700">Ordonnances</div>
+        </div>
+        <div class="bg-blue-100 rounded-lg p-4 text-center">
+          <div id="statAnalyses" class="text-2xl font-bold">...</div>
+          <div class="text-xs text-gray-700">Analyses</div>
+        </div>
+      </div>
+      <!-- Dernières consultations et Suivi (statique pour l'instant) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h2 class="font-semibold mb-2">Dernières consultations</h2>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500">
+                <th>Patient</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="lastConsultations">
+              <tr><td colspan="2">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h2 class="font-semibold mb-2">Suivi des patients</h2>
+          <ul class="list-disc pl-5 text-sm" id="suiviPatients">
+            <li>Chargement...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+    <script>
+      function logout() {
+        window.location.href = 'index.html';
+      }
+
+      async function loadDashboardStats() {
+        // Patients
+        const { data: patients } = await getPatientsFromSupabase();
+        document.getElementById('statPatients').textContent = patients ? patients.length : 0;
+        // Consultations
+        const { data: consultations } = await getConsultationsFromSupabase();
+        document.getElementById('statConsultations').textContent = consultations ? consultations.length : 0;
+        // Ordonnances
+        const { data: ordonnances } = await getOrdonnancesFromSupabase();
+        document.getElementById('statOrdonnances').textContent = ordonnances ? ordonnances.length : 0;
+        // Analyses
+        const { data: analyses } = await getAnalysesFromSupabase();
+        document.getElementById('statAnalyses').textContent = analyses ? analyses.length : 0;
+
+        // Dernières consultations (affiche les 4 plus récentes)
+        const lastConsultations = consultations ? consultations.slice(0, 4) : [];
+        const lastConsultationsBody = document.getElementById('lastConsultations');
+        lastConsultationsBody.innerHTML = '';
+        for (const c of lastConsultations) {
+          let nom = 'Inconnu', prenom = '';
+          if (patients) {
+            const patient = patients.find(p => p.id === c.patient_id);
+            if (patient) {
+              nom = patient.nom;
+              prenom = patient.prenom;
+            }
+          }
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${nom} ${prenom}</td><td>${c.date}</td>`;
+          lastConsultationsBody.appendChild(row);
+        }
+        if (lastConsultations.length === 0) {
+          lastConsultationsBody.innerHTML = '<tr><td colspan="2">Aucune consultation</td></tr>';
+        }
+
+        // Suivi des patients (exemple : patients ajoutés récemment)
+        const suiviList = document.getElementById('suiviPatients');
+        suiviList.innerHTML = '';
+        if (patients && patients.length > 0) {
+          patients.slice(0, 4).forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = `${p.nom} ${p.prenom} – Suivi en cours`;
+            suiviList.appendChild(li);
+          });
+        } else {
+          suiviList.innerHTML = '<li>Aucun patient</li>';
+        }
+
+        // Affichage du nom et de la photo de l'utilisateur connecté
+        const user = (await supabase.auth.getUser()).data.user;
+        if (user) {
+          const userName = user.user_metadata && user.user_metadata.full_name ? user.user_metadata.full_name : (user.email || 'Utilisateur');
+          document.getElementById('userName').textContent = userName;
+          if (user.user_metadata && user.user_metadata.avatar_url) {
+            document.getElementById('userAvatar').innerHTML = `<img src="${user.user_metadata.avatar_url}" alt="avatar" class="w-8 h-8 rounded-full object-cover" />`;
+          } else {
+            document.getElementById('userAvatar').textContent = userName[0].toUpperCase();
+          }
+        }
+
+        // Affichage du lien admin si superadmin
+        if (user) {
+          const { data: users } = await supabase.from('users').select('*');
+          if (users) {
+            const current = users.find(u => u.id === user.id);
+            if (current && current.role === 'superadmin') {
+              document.getElementById('adminLink').style.display = '';
+            }
+          }
+        }
+      }
+      document.addEventListener('DOMContentLoaded', loadDashboardStats);
+    </script>
+  </body>
+</html> 

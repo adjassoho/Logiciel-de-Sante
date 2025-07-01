@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profil - Logiciel de Santé</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="bg-sky-900 text-white w-64 min-h-screen flex flex-col p-4">
+    <div class="flex items-center gap-2 mb-8">
+      <span class="text-3xl">➕</span>
+      <span class="font-bold text-lg">Logiciel de Santé</span>
+    </div>
+    <nav class="flex-1">
+      <ul class="space-y-2">
+        <li><a href="dashboard.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>📊</span> <span>Tableau de bord</span></a></li>
+        <li><a href="patients.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>👤</span> <span>Patients</span></a></li>
+        <li><a href="consultations.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🗒️</span> <span>Consultations</span></a></li>
+        <li><a href="ordonnances.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>💊</span> <span>Ordonnances</span></a></li>
+        <li><a href="analyses.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🧪</span> <span>Analyses</span></a></li>
+        <li><a href="profil.html" class="flex items-center gap-2 px-3 py-2 rounded bg-sky-800 cursor-pointer transition"><span>⚙️</span> <span>Profil</span></a></li>
+        <li id="adminLink" style="display:none"><a href="admin.html" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-sky-800 cursor-pointer transition"><span>🛡️</span> <span>Administration</span></a></li>
+      </ul>
+    </nav>
+  </aside>
+  <!-- Main content -->
+  <div class="flex-1 flex flex-col p-8">
+    <header class="flex justify-between items-center p-4 bg-white shadow rounded-b-lg mb-6">
+      <div></div>
+      <div class="flex items-center gap-2" id="userHeader">
+        <span class="font-semibold" id="userName">Utilisateur</span>
+        <span id="userAvatar" class="bg-sky-900 text-white rounded-full w-8 h-8 flex items-center justify-center">👤</span>
+        <button onclick="logout()" class="ml-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition">Déconnexion</button>
+      </div>
+    </header>
+    <div class="max-w-2xl mx-auto w-full">
+      <h2 class="text-xl font-bold mb-4 text-sky-900">Mon profil</h2>
+      <form id="profileForm" class="space-y-4 bg-white p-6 rounded-xl shadow mb-8" onsubmit="return updateProfile(event)">
+        <div class="flex items-center gap-4">
+          <img id="profileAvatar" src="" alt="avatar" class="w-16 h-16 rounded-full object-cover border" />
+          <input type="file" id="avatarInput" accept="image/*" class="block" />
+        </div>
+        <div>
+          <label for="profileName" class="block text-sm font-medium text-gray-700">Nom complet</label>
+          <input type="text" id="profileName" name="profileName" required class="mt-1 block w-full rounded border-gray-300 focus:border-sky-500" />
+        </div>
+        <div>
+          <label for="profileEmail" class="block text-sm font-medium text-gray-700">Email</label>
+          <input type="email" id="profileEmail" name="profileEmail" required class="mt-1 block w-full rounded border-gray-300 focus:border-sky-500" disabled />
+        </div>
+        <button type="submit" class="bg-sky-900 text-white py-2 px-6 rounded font-semibold hover:bg-sky-800 transition">Enregistrer</button>
+        <div id="profileSuccess" class="text-green-600 text-sm mt-2 hidden text-center">Profil mis à jour !</div>
+      </form>
+      <h2 class="text-xl font-bold mb-4 text-sky-900">Changer le mot de passe</h2>
+      <form id="passwordForm" class="space-y-4 bg-white p-6 rounded-xl shadow mb-8" onsubmit="return changePassword(event)">
+        <div>
+          <label for="newPassword" class="block text-sm font-medium text-gray-700">Nouveau mot de passe</label>
+          <input type="password" id="newPassword" name="newPassword" required class="mt-1 block w-full rounded border-gray-300 focus:border-sky-500" />
+        </div>
+        <button type="submit" class="bg-sky-900 text-white py-2 px-6 rounded font-semibold hover:bg-sky-800 transition">Changer</button>
+        <div id="passwordSuccess" class="text-green-600 text-sm mt-2 hidden text-center">Mot de passe changé !</div>
+      </form>
+      <div id="adminSection" class="hidden">
+        <h2 class="text-xl font-bold mb-4 text-sky-900">Administration (Superadmin)</h2>
+        <div class="bg-white p-6 rounded-xl shadow mb-8">
+          <h3 class="font-semibold mb-2">Utilisateurs</h3>
+          <table class="w-full text-sm mb-4">
+            <thead>
+              <tr class="text-left text-gray-500">
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+    <script>
+      function logout() {
+        window.location.href = 'index.html';
+      }
+      // Chargement du profil utilisateur
+      async function loadProfile() {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (user) {
+          document.getElementById('userName').textContent = user.user_metadata && user.user_metadata.full_name ? user.user_metadata.full_name : (user.email || 'Utilisateur');
+          if (user.user_metadata && user.user_metadata.avatar_url) {
+            document.getElementById('userAvatar').innerHTML = `<img src="${user.user_metadata.avatar_url}" alt="avatar" class="w-8 h-8 rounded-full object-cover" />`;
+            document.getElementById('profileAvatar').src = user.user_metadata.avatar_url;
+          } else {
+            document.getElementById('userAvatar').textContent = user.email[0].toUpperCase();
+            document.getElementById('profileAvatar').src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.email);
+          }
+          document.getElementById('profileName').value = user.user_metadata && user.user_metadata.full_name ? user.user_metadata.full_name : '';
+          document.getElementById('profileEmail').value = user.email;
+          // Afficher la section admin si superadmin
+          const { data: users } = await supabase.from('users').select('*');
+          if (user && user.id && users) {
+            const current = users.find(u => u.id === user.id);
+            if (current && current.role === 'superadmin') {
+              document.getElementById('adminSection').classList.remove('hidden');
+              loadUsersTable(users, user.id);
+              document.getElementById('adminLink').style.display = '';
+            }
+          }
+        }
+      }
+      // Mise à jour du profil
+      async function updateProfile(event) {
+        event.preventDefault();
+        const user = (await supabase.auth.getUser()).data.user;
+        const full_name = document.getElementById('profileName').value;
+        // Avatar uploadé ?
+        const avatarInput = document.getElementById('avatarInput');
+        let avatar_url = user.user_metadata && user.user_metadata.avatar_url;
+        if (avatarInput.files && avatarInput.files[0]) {
+          // Pour la démo, on ne gère pas l'upload réel, mais on pourrait utiliser Supabase Storage ici
+          avatar_url = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(full_name);
+        }
+        const { data, error } = await supabase.auth.updateUser({ data: { full_name, avatar_url } });
+        if (!error) {
+          document.getElementById('profileSuccess').classList.remove('hidden');
+          setTimeout(() => document.getElementById('profileSuccess').classList.add('hidden'), 2000);
+          loadProfile();
+        }
+        return false;
+      }
+      // Changement de mot de passe
+      async function changePassword(event) {
+        event.preventDefault();
+        const newPassword = document.getElementById('newPassword').value;
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (!error) {
+          document.getElementById('passwordSuccess').classList.remove('hidden');
+          setTimeout(() => document.getElementById('passwordSuccess').classList.add('hidden'), 2000);
+        } else {
+          alert('Erreur : ' + error.message);
+        }
+        return false;
+      }
+      // Chargement de la table des utilisateurs (admin)
+      async function loadUsersTable(users, currentUserId) {
+        const table = document.getElementById('usersTable');
+        table.innerHTML = '';
+        users.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${u.nom || ''}</td><td>${u.email || ''}</td><td>${u.role}</td><td>
+            ${u.role !== 'superadmin' ? `<button onclick="makeChef('${u.id}')" class="text-blue-600 hover:underline mr-2">Nommer chef</button>` : ''}
+            ${u.id !== currentUserId ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:underline mr-2">Supprimer</button>` : ''}
+            ${u.id !== currentUserId ? `<button onclick="resetPasswordPrompt('${u.email}')" class="text-orange-600 hover:underline">Réinitialiser mot de passe</button>` : ''}
+          </td>`;
+          table.appendChild(tr);
+        });
+      }
+      // Nommer chef
+      async function makeChef(userId) {
+        await updateUserRole(userId, 'medecin_chef');
+        loadProfile();
+      }
+      // Supprimer utilisateur
+      async function deleteUser(userId) {
+        await supabase.from('users').delete().eq('id', userId);
+        loadProfile();
+      }
+      // Réinitialiser mot de passe
+      function resetPasswordPrompt(email) {
+        const newPassword = prompt('Nouveau mot de passe pour ' + email + ' :');
+        if (newPassword) {
+          resetUserPassword(email, newPassword).then(() => alert('Mot de passe réinitialisé !'));
+        }
+      }
+      document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+  </div>
+</body>
+</html> 
